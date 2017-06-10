@@ -6,7 +6,10 @@ static unsigned char dx, dy; // player position
 static unsigned char bx, by; // bone position
 static unsigned char bs; // bone sprite, must be < 4
 static unsigned char ex, ey; // enemy position
+static unsigned char es; // enemy sprite 0 = no enemy
 static unsigned char r; // random number
+static unsigned char score;
+static unsigned char game_over;
 
 const unsigned char pal[32]={
     // Bg
@@ -26,7 +29,18 @@ const unsigned char bone_sprite[8] = {
     0x06, 0x06, 0x16, 0x16, 0x07, 0x07, 0x16, 0x16
 };
 
+const unsigned char enemy_sprite[8] = {
+    0x00, 0x17, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19
+};
+
 #define G(x) (x)*8
+#define MINMAX(x,min,max) x=(((x)<(min))?(min):((x)>(max))?(max):(x))
+#define SPRITE_COLLISION(x1,y1,x2,y2,sx1,sx2,sy1,sy2) \
+          (((x1 - x2) < sx2 || (x2 - x1) < sx1) \
+        && ((y1 - y2) < sy2 || (y2 - y1) < sy1))
+
+#define SPRITE_COLLISION_8(x1,y1,x2,y2) \
+        SPRITE_COLLISION(x1,y1,x2,y2,8,8,8,8)
 
 #define PLAYER_SPEED 2
 #define PLAYER_MIN_X 8
@@ -36,18 +50,21 @@ const unsigned char bone_sprite[8] = {
 #define BONE_MAX_X 248
 #define BONE_SPEED 4
 #define ENEMY_START_X 248
-#define ENEMY_SPEED_X 4
+#define ENEMY_SPEED_X 1
 
 void main(void) {
     pal_all(pal);
     ppu_on_all();
 
-    // initial position
+    // initial positions
     dx = PLAYER_MIN_X;
     dy = (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
     bx = 0;
     bs = 0;
-    ex = 0;
+    es = 0;
+
+    score = 0;
+    game_over = 0;
 
     while (1) {
         ppu_wait_frame();
@@ -69,16 +86,43 @@ void main(void) {
         }
 
         // enemy movement
-        if (ex) {
-            ex -= ENEMY_SPEED_X;
-            if (ex < PLAYER_MIN_X) ex = 0; // enemy disappears
-        } else {
+        switch (es) {
+        case 0:
+            // spawn new enemy
+            es = 1;
+            ex = ENEMY_START_X;
+
             r = rand8();
-            if (r > 200) {
-                // spawn new enemy
-                ex = ENEMY_START_X;
-                ey = dy + G(1);
+            ey = dy + r - (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
+            MINMAX(ey, PLAYER_MIN_Y+8, PLAYER_MAX_Y-8);
+            break;
+
+        case 1: // enemy movement
+            ex -= ENEMY_SPEED_X;
+            if (ex < PLAYER_MIN_X) {
+                es = 0; // enemy disappears
+                game_over = 1;
             }
+            // collisions
+            if (SPRITE_COLLISION(bx, by, ex, ey, 6, 6, 8, 8)) {
+                es = 2;
+                bx = 0;
+                ++score;
+            }
+            break;
+
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+            ++es;
+            break;
+
+        case 7:
+        default:
+            es = 0;
+            break;
         }
 
         // draw sprites
@@ -97,15 +141,13 @@ void main(void) {
         if (bx) {
             bs = (bs + 1) & 7;
             spr = oam_spr(bx, by, bone_sprite[bs], 1, spr); // bone
-        } else {
-            spr = oam_spr(0, 0, 0, 0, spr); // nothing
         }
 
         // draw enemy
         if (ex) {
-            spr = oam_spr(ex, ey, 0x17, 1, spr); // enemy
-        } else {
-            spr = oam_spr(0, 0, 0, 0, spr); // nothing
+            spr = oam_spr(ex, ey, enemy_sprite[es], 1, spr); // enemy
         }
+
+        oam_hide_rest(spr);
     };
 }
