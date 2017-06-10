@@ -1,11 +1,14 @@
 #include "neslib.h"
 
 
-static unsigned char i, spr;
+static unsigned char spr;
+static unsigned char pt, pp; // pad triggers and pad state
 static unsigned char dx, dy; // player position
 static unsigned char bx, by; // bone position
 static unsigned char bs; // bone sprite, must be < 4
 static unsigned char ex, ey; // enemy position
+static unsigned char eyr; // enemy real y position
+static unsigned char ej; // enemy jump state
 static unsigned char es; // enemy sprite 0 = no enemy
 static unsigned char r; // random number
 static unsigned char score;
@@ -29,10 +32,15 @@ const unsigned char bone_sprite[8] = {
     0x06, 0x06, 0x16, 0x16, 0x07, 0x07, 0x16, 0x16
 };
 
-const unsigned char enemy_sprite[11] = {
+const unsigned char enemy_sprite[12] = {
     0x00, // hidden
     0x08, 0x08, 0x09, 0x09, // walking
+    0x0A, // jumping
     0x18, 0x18, 0x18, 0x19, 0x19, 0x19 // dying
+};
+
+const unsigned char enemy_jump[] = {
+    0, 0, 3, 6, 9, 11, 13, 15, 16, 17, 18, 17, 16, 15, 13, 11, 9, 6, 3, 0
 };
 
 #define G(x) (x)*8
@@ -54,6 +62,32 @@ const unsigned char enemy_sprite[11] = {
 #define ENEMY_START_X 248
 #define ENEMY_SPEED_X 1
 
+void move_enemy(void) {
+    ex -= ENEMY_SPEED_X;
+    if (ex < PLAYER_MIN_X) {
+        es = 0; // enemy disappears
+        ej = 0;
+        game_over = 1;
+    }
+
+    // start a jump
+    if (ej == 0) {
+        r = rand8();
+        if (r < 16) {
+            ej = 1;
+            es = 5;
+        }
+    }
+
+    // collisions
+    if (SPRITE_COLLISION(bx, by, ex, eyr, 6, 6, 8, 8)) {
+        es = 6;
+        ej = 0;
+        bx = 0;
+        ++score;
+    }
+}
+
 void main(void) {
     pal_all(pal);
     ppu_on_all();
@@ -64,6 +98,7 @@ void main(void) {
     bx = 0;
     bs = 0;
     es = 0;
+    ej = 0;
 
     score = 0;
     game_over = 0;
@@ -71,20 +106,22 @@ void main(void) {
     while (1) {
         ppu_wait_frame();
 
-        i = pad_poll(0);
+        pt = pad_trigger(0);
+        pp = pad_poll(0);
 
         // player movement
-        if((i & PAD_LEFT)  && dx > PLAYER_MIN_X) dx -= PLAYER_SPEED;
-        if((i & PAD_RIGHT) && dx < PLAYER_MAX_X) dx += PLAYER_SPEED;
-        if((i & PAD_UP)    && dy > PLAYER_MIN_Y) dy -= PLAYER_SPEED;
-        if((i & PAD_DOWN)  && dy < PLAYER_MAX_Y) dy += PLAYER_SPEED;
+        if     ((pp & PAD_LEFT)  && dx > PLAYER_MIN_X) dx -= PLAYER_SPEED;
+        else if((pp & PAD_RIGHT) && dx < PLAYER_MAX_X) dx += PLAYER_SPEED;
+        if     ((pp & PAD_UP)    && dy > PLAYER_MIN_Y) dy -= PLAYER_SPEED;
+        else if((pp & PAD_DOWN)  && dy < PLAYER_MAX_Y) dy += PLAYER_SPEED;
 
         // bone movement
         if(bx) bx += BONE_SPEED;
         if(bx > BONE_MAX_X) bx = 0;
-        if((i & PAD_A) && bx == 0) {
+
+        if((pt & PAD_A) && bx == 0) {
             bx = dx + G(3);
-            by = dy + G(1);
+            by = dy + 12;
         }
 
         // enemy movement
@@ -97,33 +134,36 @@ void main(void) {
             r = rand8();
             ey = dy + r - (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
             MINMAX(ey, PLAYER_MIN_Y+8, PLAYER_MAX_Y-8);
+            eyr = ey;
             break;
 
-        case 4:
-            es = 0; // will be incremented back to one right after
-            // fall through
+        case 5: // jumping
+            ++ej;
+            eyr = ey - enemy_jump[ej];
+            if (! enemy_jump[ej]) {
+                es = 1; // jump is finished
+                ej = 0;
+            }
+            move_enemy();
+            break;
+
         case 1: // enemy movement
         case 2:
         case 3:
             ++es;
-            ex -= ENEMY_SPEED_X;
-            if (ex < PLAYER_MIN_X) {
-                es = 0; // enemy disappears
-                game_over = 1;
-            }
-            // collisions
-            if (SPRITE_COLLISION(bx, by, ex, ey, 6, 6, 8, 8)) {
-                es = 5;
-                bx = 0;
-                ++score;
-            }
+            move_enemy();
             break;
 
-        case 5: // dying
-        case 6:
+        case 4:
+            es = 1;
+            move_enemy();
+            break;
+
+        case 6: // dying
         case 7:
         case 8:
         case 9:
+        case 10:
             ++es;
             break;
 
@@ -152,7 +192,12 @@ void main(void) {
 
         // draw enemy
         if (ex) {
-            spr = oam_spr(ex, ey, enemy_sprite[es], 1, spr); // enemy
+            spr = oam_spr(ex, eyr, enemy_sprite[es], 1, spr); // enemy
+
+            // draw enemy shadow
+            if (ej) {
+                spr = oam_spr(ex, ey, 0x1A, 1, spr);
+            }
         }
 
         oam_hide_rest(spr);
