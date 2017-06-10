@@ -29,8 +29,10 @@ const unsigned char bone_sprite[8] = {
     0x06, 0x06, 0x16, 0x16, 0x07, 0x07, 0x16, 0x16
 };
 
-const unsigned char enemy_sprite[8] = {
-    0x00, 0x17, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19
+const unsigned char enemy_sprite[11] = {
+    0x00, // hidden
+    0x08, 0x08, 0x09, 0x09, // walking
+    0x18, 0x18, 0x18, 0x19, 0x19, 0x19 // dying
 };
 
 #define G(x) (x)*8
@@ -97,7 +99,13 @@ void main(void) {
             MINMAX(ey, PLAYER_MIN_Y+8, PLAYER_MAX_Y-8);
             break;
 
+        case 4:
+            es = 0; // will be incremented back to one right after
+            // fall through
         case 1: // enemy movement
+        case 2:
+        case 3:
+            ++es;
             ex -= ENEMY_SPEED_X;
             if (ex < PLAYER_MIN_X) {
                 es = 0; // enemy disappears
@@ -105,22 +113,21 @@ void main(void) {
             }
             // collisions
             if (SPRITE_COLLISION(bx, by, ex, ey, 6, 6, 8, 8)) {
-                es = 2;
+                es = 5;
                 bx = 0;
                 ++score;
             }
             break;
 
-        case 2:
-        case 3:
-        case 4:
-        case 5:
+        case 5: // dying
         case 6:
+        case 7:
+        case 8:
+        case 9:
             ++es;
             break;
 
-        case 7:
-        default:
+        default: // dead
             es = 0;
             break;
         }
