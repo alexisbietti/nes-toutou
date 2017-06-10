@@ -12,7 +12,7 @@ static unsigned char ej; // enemy jump state
 static unsigned char es; // enemy sprite 0 = no enemy
 static unsigned char r; // random number
 static unsigned char score;
-static unsigned char game_over;
+static unsigned char life;
 
 const unsigned char pal[32]={
     // Bg
@@ -43,10 +43,13 @@ const unsigned char enemy_jump[] = {
     0, 0, 3, 6, 9, 11, 13, 15, 16, 17, 18, 17, 16, 15, 13, 11, 9, 6, 3, 0
 };
 
-static unsigned char list[3*3+1] = {
+static unsigned char list[6*3+1] = {
     MSB(NTADR_A(2,2)),LSB(NTADR_A(2,2)),0, //score
     MSB(NTADR_A(3,2)),LSB(NTADR_A(3,2)),0,
     MSB(NTADR_A(4,2)),LSB(NTADR_A(4,2)),0,
+    MSB(NTADR_A(20,2)),LSB(NTADR_A(20,2)),0, //life
+    MSB(NTADR_A(22,2)),LSB(NTADR_A(22,2)),0,
+    MSB(NTADR_A(24,2)),LSB(NTADR_A(24,2)),0,
     NT_UPD_EOF
 };
 
@@ -74,7 +77,12 @@ void move_enemy(void) {
     if (ex < PLAYER_MIN_X) {
         es = 0; // enemy disappears
         ej = 0;
-        game_over = 1;
+        --life; // lose a life
+    } else if (SPRITE_COLLISION(bx, by, ex, eyr, 6, 6, 8, 8)) {
+        es = 6;
+        ej = 0;
+        bx = 0;
+        ++score;
     }
 
     // start a jump
@@ -87,12 +95,6 @@ void move_enemy(void) {
     }
 
     // collisions
-    if (SPRITE_COLLISION(bx, by, ex, eyr, 6, 6, 8, 8)) {
-        es = 6;
-        ej = 0;
-        bx = 0;
-        ++score;
-    }
 }
 
 void main(void) {
@@ -110,7 +112,7 @@ void main(void) {
     ej = 0;
 
     score = 0;
-    game_over = 0;
+    life = 3;
 
     while (1) {
         ppu_wait_frame();
@@ -213,6 +215,11 @@ void main(void) {
         list[2]=(score<100)?0x00:(0x30+score/100);
         list[5]=(score<10)?0x00:(0x30+score/10%10);
         list[8]=0x30+score%10;
+
+        // life
+        list[11]=(life<3)?0x00:0x18;
+        list[14]=(life<2)?0x00:0x18;
+        list[17]=(life<1)?0x00:0x18;
 
         oam_hide_rest(spr);
     };
