@@ -97,13 +97,7 @@ void move_enemy(void) {
     // collisions
 }
 
-void main(void) {
-    pal_all(pal);
-    set_vram_update(list);
-    bank_bg(1);
-    ppu_on_all();
-
-    // initial positions
+void init_play(void) {
     dx = PLAYER_MIN_X;
     dy = (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
     bx = 0;
@@ -113,6 +107,27 @@ void main(void) {
 
     score = 0;
     life = 3;
+}
+
+void wait_new_play(void) {
+    while (1) {
+        ppu_wait_frame();
+        pp = pad_poll(0);
+
+        if (pp & PAD_START) {
+            init_play();
+            return;
+        }
+    }
+}
+
+void main(void) {
+    pal_all(pal);
+    set_vram_update(list);
+    bank_bg(1);
+    ppu_on_all();
+
+    init_play();
 
     while (1) {
         ppu_wait_frame();
@@ -222,5 +237,9 @@ void main(void) {
         list[17]=(life<1)?0x00:0x18;
 
         oam_hide_rest(spr);
+
+        if (life == 0) {
+            wait_new_play();
+        }
     };
 }
