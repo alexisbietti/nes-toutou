@@ -4,6 +4,7 @@
 static unsigned char spr;
 static unsigned char pt, pp; // pad triggers and pad state
 static unsigned char dx, dy; // player position
+static unsigned char stun; // number of frames the player is stunned
 static unsigned char bx, by; // bone position
 static unsigned char bs; // bone sprite, must be < 4
 static unsigned char ex, ey; // enemy position
@@ -71,13 +72,15 @@ static unsigned char list[6*3+1] = {
 #define BONE_SPEED 4
 #define ENEMY_START_X 248
 #define ENEMY_SPEED_X 1
+#define STUN_FRAMES 10
 
 void move_enemy(void) {
     ex -= ENEMY_SPEED_X;
-    if (ex < PLAYER_MIN_X) {
+    if (ex < PLAYER_MIN_X || SPRITE_COLLISION(dx+8, dy, ex, eyr, G(4), G(2), 8, 8)) {
         es = 0; // enemy disappears
         ej = 0;
         --life; // lose a life
+        stun = STUN_FRAMES;
     } else if (SPRITE_COLLISION(bx, by, ex, eyr, 6, 6, 8, 8)) {
         es = 6;
         ej = 0;
@@ -136,10 +139,14 @@ void main(void) {
         pp = pad_poll(0);
 
         // player movement
-        if     ((pp & PAD_LEFT)  && dx > PLAYER_MIN_X) dx -= PLAYER_SPEED;
-        else if((pp & PAD_RIGHT) && dx < PLAYER_MAX_X) dx += PLAYER_SPEED;
-        if     ((pp & PAD_UP)    && dy > PLAYER_MIN_Y) dy -= PLAYER_SPEED;
-        else if((pp & PAD_DOWN)  && dy < PLAYER_MAX_Y) dy += PLAYER_SPEED;
+        if (stun == 0) {
+            if     ((pp & PAD_LEFT)  && dx > PLAYER_MIN_X) dx -= PLAYER_SPEED;
+            else if((pp & PAD_RIGHT) && dx < PLAYER_MAX_X) dx += PLAYER_SPEED;
+            if     ((pp & PAD_UP)    && dy > PLAYER_MIN_Y) dy -= PLAYER_SPEED;
+            else if((pp & PAD_DOWN)  && dy < PLAYER_MAX_Y) dy += PLAYER_SPEED;
+        } else {
+            --stun;
+        }
 
         // bone movement
         if(bx) bx += BONE_SPEED;
@@ -204,7 +211,7 @@ void main(void) {
         // draw player
         spr = oam_spr(dx+G(2), dy+G(0),  2, 0, spr); // hat
         spr = oam_spr(dx+G(0), dy+G(1), 16, 0, spr); // tail
-        spr = oam_spr(dx+G(2), dy+G(1), 18, 1, spr); // head
+        spr = oam_spr(dx+G(2), dy+G(1), stun ? 0x03 : 0x12, 1, spr); // head
         spr = oam_spr(dx+G(3), dy+G(1), 19, 1, spr); // nose
         spr = oam_spr(dx+G(0), dy+G(2), 32, 0, spr); // back
         spr = oam_spr(dx+G(1), dy+G(2), 33, 0, spr); // body
