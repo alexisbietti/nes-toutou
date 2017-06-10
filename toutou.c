@@ -43,6 +43,13 @@ const unsigned char enemy_jump[] = {
     0, 0, 3, 6, 9, 11, 13, 15, 16, 17, 18, 17, 16, 15, 13, 11, 9, 6, 3, 0
 };
 
+static unsigned char list[3*3+1] = {
+    MSB(NTADR_A(2,2)),LSB(NTADR_A(2,2)),0, //score
+    MSB(NTADR_A(3,2)),LSB(NTADR_A(3,2)),0,
+    MSB(NTADR_A(4,2)),LSB(NTADR_A(4,2)),0,
+    NT_UPD_EOF
+};
+
 #define G(x) (x)*8
 #define MINMAX(x,min,max) x=(((x)<(min))?(min):((x)>(max))?(max):(x))
 #define SPRITE_COLLISION(x1,y1,x2,y2,sx1,sx2,sy1,sy2) \
@@ -90,6 +97,8 @@ void move_enemy(void) {
 
 void main(void) {
     pal_all(pal);
+    set_vram_update(list);
+    bank_bg(1);
     ppu_on_all();
 
     // initial positions
@@ -199,6 +208,11 @@ void main(void) {
                 spr = oam_spr(ex, ey, 0x1A, 1, spr);
             }
         }
+
+        // score
+        list[2]=(score<100)?0x00:(0x30+score/100);
+        list[5]=(score<10)?0x00:(0x30+score/10%10);
+        list[8]=0x30+score%10;
 
         oam_hide_rest(spr);
     };
