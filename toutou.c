@@ -166,7 +166,7 @@ void main(void) {
 
             r = rand8();
             ey = dy + r - (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
-            MINMAX(ey, PLAYER_MIN_Y+8, PLAYER_MAX_Y-8);
+            MINMAX(ey, PLAYER_MIN_Y+16, PLAYER_MAX_Y-8);
             eyr = ey;
             break;
 
