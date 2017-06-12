@@ -239,9 +239,9 @@ void main(void) {
         list[8]=0x30+score%10;
 
         // life
-        list[11]=(life<3)?0x00:0x18;
-        list[14]=(life<2)?0x00:0x18;
-        list[17]=(life<1)?0x00:0x18;
+        list[11]=(life<3)?0x19:0x18;
+        list[14]=(life<2)?0x19:0x18;
+        list[17]=(life<1)?0x19:0x18;
 
         oam_hide_rest(spr);
 
