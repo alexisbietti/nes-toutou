@@ -72,7 +72,10 @@ static unsigned char list[6*3+1] = {
 #define BONE_SPEED 4
 #define ENEMY_START_X 248
 #define ENEMY_SPEED_X 1
+#define ENEMY_SPEED_Y 1
 #define STUN_FRAMES 10
+#define ENEMY_MIN_Y (PLAYER_MIN_Y+16)
+#define ENEMY_MAX_Y (PLAYER_MAX_Y-8)
 
 void move_enemy(void) {
     ex -= ENEMY_SPEED_X;
@@ -86,18 +89,24 @@ void move_enemy(void) {
         ej = 0;
         bx = 0;
         ++score;
-    }
-
-    // start a jump
-    if (ej == 0) {
-        r = rand8();
-        if (r < 16) {
-            ej = 1;
-            es = 5;
+    } else if (ej == 0) {
+        // check if vertical move on 2nd controller
+        pp = pad_poll(1);
+        if ((pp & PAD_UP) && ey > ENEMY_MIN_Y) {
+            ey -= ENEMY_SPEED_Y;
+            eyr = ey;
+        } else if ((pp & PAD_DOWN) && dy < ENEMY_MAX_Y) {
+            ey += ENEMY_SPEED_Y;
+            eyr = ey;
+        } else {
+            // start a jump, maybe
+            r = rand8();
+            if (r < 16) {
+                ej = 1;
+                es = 5;
+            }
         }
     }
-
-    // collisions
 }
 
 void init_play(void) {
@@ -166,7 +175,7 @@ void main(void) {
 
             r = rand8();
             ey = dy + r - (PLAYER_MAX_Y + PLAYER_MIN_Y) / 2;
-            MINMAX(ey, PLAYER_MIN_Y+16, PLAYER_MAX_Y-8);
+            MINMAX(ey, ENEMY_MIN_Y, ENEMY_MAX_Y);
             eyr = ey;
             break;
 
