@@ -86,6 +86,10 @@ static unsigned char list[6*3+1] = {
 #define SPR_ZERO 0x30
 #define SPR_DIGIT(x) (SPR_ZERO+(x))
 
+#define PLAY_ENEMY_DEAD() sfx_play(0,0)
+#define PLAY_PLAYER_HIT() sfx_play(1,1)
+#define PLAY_GAME_OVER() sfx_play(2,2)
+
 // Game state
 static unsigned char spr; // sprite counter, reset to 0 beginning of each frame
 static unsigned char pt, pp; // pad triggers and pad state
@@ -107,8 +111,12 @@ void move_enemy(void) {
         es = ENEMY_HIDDEN; // enemy disappears
         ej = 0;
         --life; // lose a life
+        if (life) {
+          PLAY_PLAYER_HIT();
+        }
         stun = STUN_FRAMES; // start stun 'animation'
     } else if (SPRITE_COLLISION(bx, by, ex, eyr, 6, 6, 8, 8)) {
+        PLAY_ENEMY_DEAD();
         es = ENEMY_DYING; // enemy start dying animation
         ej = 0;
         bx = 0;
@@ -147,6 +155,7 @@ void init_play(void) {
 }
 
 void wait_new_play(void) {
+    music_stop();
     // wait until player 1 hits start
     do {
         ppu_wait_frame();
@@ -155,6 +164,7 @@ void wait_new_play(void) {
 
     // reset game state
     init_play();
+    music_play(0);
 }
 
 void update_player(void) {
@@ -279,7 +289,7 @@ void main(void) {
     bank_bg(1);
     ppu_on_all();
 
-    init_play();
+    wait_new_play();
 
     while (1) {
         ppu_wait_frame();
@@ -304,6 +314,7 @@ void main(void) {
         oam_hide_rest(spr);
 
         if (life == 0) {
+            PLAY_GAME_OVER();
             // enter a new loop
             wait_new_play();
         }
